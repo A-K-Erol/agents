@@ -16,6 +16,7 @@ from .. import llm, utils
 from ..llm import (
     ChatChunk,
     ChatContext,
+    CompletionUsage,
     StopResponse,
     ToolContext,
     ToolError,
@@ -167,7 +168,7 @@ def perform_llm_inference(
             data,
             model,
             provider,
-            sentence_tokenizer=sentence_tokenizer,
+            sentence_tokenizer,
         )
     )
     llm_task.add_done_callback(lambda _: text_ch.close())
@@ -192,7 +193,6 @@ async def _llm_inference_task(
     data: _LLMGenerationData,
     model: str | None = None,
     provider: str | None = None,
-    *,
     sentence_tokenizer: SentenceTokenizer | None = None,
 ) -> bool:
     start_time = time.perf_counter()
@@ -243,7 +243,7 @@ async def _llm_inference_task(
         return False
 
     # forward llm stream to output channels
-    usage: Any = None
+    usage: CompletionUsage | None = None
     if sentence_tokenizer is None:
         sentence_tokenizer = blingfire.SentenceTokenizer(retain_format=True)
     sentence_stream = sentence_tokenizer.stream()
@@ -321,7 +321,7 @@ async def _llm_inference_task(
             await llm_node.aclose()
         try:
             sentence_stream.end_input()  # flush any trailing sentence, then close
-        except RuntimeError:
+        except Exception:
             pass
         await utils.aio.cancel_and_wait(ttfs_task)
 
